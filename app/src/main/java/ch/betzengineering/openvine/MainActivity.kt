@@ -68,7 +68,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var textureView: TextureView
     private lateinit var recordButton: View
     private lateinit var switchButton: ImageButton
-    private lateinit var switchRearCameraButton: ImageButton
     private lateinit var progressRing: ProgressRingView
     private lateinit var galleryButton: ImageButton
     private var lastStitchedFile: File? = null
@@ -78,9 +77,8 @@ class MainActivity : AppCompatActivity() {
     private var captureSession: CameraCaptureSession? = null
     private var currentCameraOrientation: Int = 0
     private var currentCameraId: String = ""
-    private var rearCameraIds: MutableList<String> = mutableListOf()
-    private var currentRearCameraIndex: Int = 0
-    private var frontCameraId: String = ""
+    private var allCameraIds: MutableList<String> = mutableListOf()
+    private var currentCameraIndex: Int = 0
 
     // Encoder / muxer
     @Volatile
@@ -149,41 +147,33 @@ class MainActivity : AppCompatActivity() {
         progressRing = findViewById(R.id.progressRing)
         galleryButton = findViewById(R.id.gallery_button)
 
+        // Collect all cameras: rear cameras first, then front camera
         for (id in cameraManager.cameraIdList) {
             val characteristics = cameraManager.getCameraCharacteristics(id)
             val facing = characteristics.get(CameraCharacteristics.LENS_FACING)
-            when (facing) {
-                CameraCharacteristics.LENS_FACING_BACK -> rearCameraIds.add(id)
-                CameraCharacteristics.LENS_FACING_FRONT -> frontCameraId = id
+            if (facing == CameraCharacteristics.LENS_FACING_BACK) {
+                allCameraIds.add(id)
+            }
+        }
+        for (id in cameraManager.cameraIdList) {
+            val characteristics = cameraManager.getCameraCharacteristics(id)
+            val facing = characteristics.get(CameraCharacteristics.LENS_FACING)
+            if (facing == CameraCharacteristics.LENS_FACING_FRONT) {
+                allCameraIds.add(id)
             }
         }
 
-        // Rear default (first rear camera)
-        currentRearCameraIndex = 0
-        currentCameraId = rearCameraIds.firstOrNull() ?: ""
+        // Default to first camera (first rear camera)
+        currentCameraIndex = 0
+        currentCameraId = allCameraIds.firstOrNull() ?: ""
 
-        // --- SWITCH FRONT/BACK BUTTON ---
+        // --- SWITCH CAMERA BUTTON ---
+        // Cycles through all rear cameras, then front camera, then back to first rear
         switchButton.setOnClickListener {
-            val isCurrentlyRear = rearCameraIds.contains(currentCameraId)
-            currentCameraId = if (isCurrentlyRear) frontCameraId else rearCameraIds[currentRearCameraIndex]
+            currentCameraIndex = (currentCameraIndex + 1) % allCameraIds.size
+            currentCameraId = allCameraIds[currentCameraIndex]
             closeCamera()
             openCamera()
-        }
-
-        // --- SWITCH REAR CAMERA BUTTON ---
-        switchRearCameraButton = findViewById(R.id.switch_rear_camera_button)
-        // Only show if multiple rear cameras exist
-        if (rearCameraIds.size > 1) {
-            switchRearCameraButton.visibility = View.VISIBLE
-            switchRearCameraButton.setOnClickListener {
-                // Cycle to the next rear camera
-                currentRearCameraIndex = (currentRearCameraIndex + 1) % rearCameraIds.size
-                currentCameraId = rearCameraIds[currentRearCameraIndex]
-                closeCamera()
-                openCamera()
-            }
-        } else {
-            switchRearCameraButton.visibility = View.GONE
         }
 
         recordButton.setOnTouchListener { _, ev ->

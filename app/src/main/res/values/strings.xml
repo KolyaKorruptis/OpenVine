@@ -6,5 +6,4 @@
     <string name="pause_capture">Pause Capture</string>
     <string name="resume_capture">Resume Capture</string>
     <string name="switch_camera">Switch</string>
-    <string name="switch_rear_camera">Switch Rear Camera</string>
 </resources>

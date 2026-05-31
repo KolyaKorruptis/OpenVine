@@ -68,6 +68,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var textureView: TextureView
     private lateinit var recordButton: View
     private lateinit var switchButton: ImageButton
+    private lateinit var switchRearCameraButton: ImageButton
     private lateinit var progressRing: ProgressRingView
     private lateinit var galleryButton: ImageButton
     private var lastStitchedFile: File? = null
@@ -77,7 +78,8 @@ class MainActivity : AppCompatActivity() {
     private var captureSession: CameraCaptureSession? = null
     private var currentCameraOrientation: Int = 0
     private var currentCameraId: String = ""
-    private var rearCameraId: String = ""
+    private var rearCameraIds: MutableList<String> = mutableListOf()
+    private var currentRearCameraIndex: Int = 0
     private var frontCameraId: String = ""
 
     // Encoder / muxer
@@ -151,19 +153,37 @@ class MainActivity : AppCompatActivity() {
             val characteristics = cameraManager.getCameraCharacteristics(id)
             val facing = characteristics.get(CameraCharacteristics.LENS_FACING)
             when (facing) {
-                CameraCharacteristics.LENS_FACING_BACK -> rearCameraId = id
+                CameraCharacteristics.LENS_FACING_BACK -> rearCameraIds.add(id)
                 CameraCharacteristics.LENS_FACING_FRONT -> frontCameraId = id
             }
         }
 
-        // Rear default
-        currentCameraId = rearCameraId
+        // Rear default (first rear camera)
+        currentRearCameraIndex = 0
+        currentCameraId = rearCameraIds.firstOrNull() ?: ""
 
-        // --- SWITCH BUTTON ---
+        // --- SWITCH FRONT/BACK BUTTON ---
         switchButton.setOnClickListener {
-            currentCameraId = if (currentCameraId == rearCameraId) frontCameraId else rearCameraId
+            val isCurrentlyRear = rearCameraIds.contains(currentCameraId)
+            currentCameraId = if (isCurrentlyRear) frontCameraId else rearCameraIds[currentRearCameraIndex]
             closeCamera()
             openCamera()
+        }
+
+        // --- SWITCH REAR CAMERA BUTTON ---
+        switchRearCameraButton = findViewById(R.id.switch_rear_camera_button)
+        // Only show if multiple rear cameras exist
+        if (rearCameraIds.size > 1) {
+            switchRearCameraButton.visibility = View.VISIBLE
+            switchRearCameraButton.setOnClickListener {
+                // Cycle to the next rear camera
+                currentRearCameraIndex = (currentRearCameraIndex + 1) % rearCameraIds.size
+                currentCameraId = rearCameraIds[currentRearCameraIndex]
+                closeCamera()
+                openCamera()
+            }
+        } else {
+            switchRearCameraButton.visibility = View.GONE
         }
 
         recordButton.setOnTouchListener { _, ev ->
